@@ -34,8 +34,6 @@ namespace LofiCompany
             Instance = this;
             lofiConfigs = new LofiConfigs(Config);
             LoadLofiMusic();
-            InitLofiWeatherTypes();
-            InitLofiDayModes();
 
             if (lofiSongsInQueue.Count > 0)
             {
@@ -77,19 +75,6 @@ namespace LofiCompany
             lofiAssetBundle = AssetBundle.LoadFromFile(lofiAssetBundleDir);
             allLofiSongs = [.. lofiAssetBundle.LoadAllAssets<AudioClip>()];
             lofiSongsInQueue.AddRange(allLofiSongs);
-        }
-
-        internal static void InitLofiWeatherTypes()
-        {
-            lofiWeatherTypes.Add(LevelWeatherType.Rainy);
-            lofiWeatherTypes.Add(LevelWeatherType.Stormy);
-            lofiWeatherTypes.Add(LevelWeatherType.Flooded);
-        }
-
-        internal static void InitLofiDayModes()
-        {
-            lofiDayModes.Add(DayMode.Noon);
-            lofiDayModes.Add(DayMode.Sundown);
         }
     }
 }

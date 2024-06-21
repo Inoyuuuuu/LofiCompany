@@ -1,7 +1,10 @@
+using GameNetcodeStuff;
 using HarmonyLib;
 using LofiCompany.Configs;
 using System.Collections;
+using System.Text;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace LofiCompany.Patches
 {
@@ -10,68 +13,102 @@ namespace LofiCompany.Patches
     {
         private static System.Random random = new(0);
 
-        private static bool wasShipPowerSurged = false;
-
         private static int[] hoursMinutes = new int[2];
-        private static int currentHour = 0;
-        private static int currentMinute = 0;
+        private static int currentHours = 0;
+        private static int currentMinutes = 0;
 
         private static int chancePerAttempt = LofiConfigs.defaultChancePerAttempt;
         private static int attemptsPerHour = LofiConfigs.attemptsPerHourBaseValue;
         private static float musicVolume = LofiConfigs.defaultMusicVolume;
+        private static float playerShipLeaveTimer = LofiConfigs.defaultPlayerLeaveShipTimer;
 
+        private static bool wasShipPowerSurged = false;
         private static bool isPlayingLofiSong = false;
-        private static bool isAPlayerInShiproom = false;
         private static bool isPlayingMusicNextOpportunity = false;
+        private static bool isShiproomEmpty = false;
 
         [HarmonyPatch(nameof(StartOfRound.Update))]
         [HarmonyPostfix]
         public static void PlayLofiAtRandom(StartOfRound __instance)
         {
-            chancePerAttempt = LofiConfigs.Instance.chancePerAttempt;
-            attemptsPerHour = LofiConfigs.Instance.attemptsPerHour;
-            musicVolume = LofiConfigs.Instance.musicVolume;
+            chancePerAttempt = LofiConfigs.Instance.chancePerAttempt.Value;
+            attemptsPerHour = LofiConfigs.Instance.attemptsPerHour.Value;
+            musicVolume = LofiConfigs.Instance.musicVolume.Value;
+
 
             UpdateWasShipPowerSurged();
 
+            //------------ update time ------------
             hoursMinutes = GetCurrentHoursAndMinutes();
-            if (currentHour != hoursMinutes[0])
+            if (currentMinutes != hoursMinutes[1])
             {
-                currentHour = hoursMinutes[0];
-                OnHourPassed();
+                currentMinutes = hoursMinutes[1];
             }
 
-            if (currentMinute != hoursMinutes[1])
+            if (currentHours != hoursMinutes[0])
             {
-                currentMinute = hoursMinutes[1];
-                OnMinutePassed();
+                currentHours = hoursMinutes[0];
+                currentMinutes = 0;
             }
 
-            //---- play random song if conditions are met
-            if (!isPlayingLofiSong && !__instance.speakerAudioSource.isPlaying && !__instance.shipIsLeaving && !__instance.inShipPhase && IsAPlayerInShiproom())
+            //------------ check if players haven't been in the ship for a while ------------
+            if (IsAPlayerInShiproom())
             {
-                LevelWeatherType currentWeather = TimeOfDay.Instance.currentLevelWeather;
-                DayMode currentTimeOfDay = TimeOfDay.Instance.dayMode;
-                bool isLofiWeather = LofiCompany.lofiWeatherTypes.Contains(currentWeather);
-                bool isLofiDaytime = LofiCompany.lofiDayModes.Contains(currentTimeOfDay);
-
-
-                if (isLofiWeather && isLofiDaytime && isPlayingMusicNextOpportunity)
+                playerShipLeaveTimer = LofiConfigs.Instance.playerLeaveShipTimer.Value;
+                isShiproomEmpty = false;
+            }
+            else
+            {
+                if (playerShipLeaveTimer > 0)
                 {
-                    PlayRandomSong(__instance);
+                    playerShipLeaveTimer -= Time.deltaTime;
+                } else
+                {
+                    isShiproomEmpty = true;
                 }
             }
 
-            //---- while lofi is playing
+            //------------ play random song if conditions are met ------------
+            bool areShipConditionsMet = !__instance.speakerAudioSource.isPlaying && !__instance.shipIsLeaving && __instance.shipHasLanded && !__instance.inShipPhase;
+            
+            if (!isPlayingLofiSong && areShipConditionsMet && IsAPlayerInShiproom())
+            {
+                LevelWeatherType currentWeather = TimeOfDay.Instance.currentLevelWeather;
+                DayMode currentTimeOfDay = TimeOfDay.Instance.dayMode;
+                bool isLofiWeather = LofiCompany.lofiWeatherTypes.Contains(currentWeather) || LofiConfigs.areAllWeatherTypesAccepted;
+                bool isLofiDaytime = LofiCompany.lofiDayModes.Contains(currentTimeOfDay) || LofiConfigs.areAllDayModesAccepted;
+
+
+                if (isLofiWeather && isLofiDaytime)
+                {
+                    int checkPointMinutes = (int)(60 / attemptsPerHour);
+
+                    for (int i = 0; i < attemptsPerHour; i++)
+                    {
+                        if (i * checkPointMinutes == currentMinutes || i * checkPointMinutes == 60)
+                        {
+                            isPlayingMusicNextOpportunity = IsPlayingOnNextOpportunity();
+                        }
+                    }
+
+                    if (isPlayingMusicNextOpportunity)
+                    {
+                        PlayRandomSong(__instance);
+                    }
+                }
+            }
+
+            //------------ while lofi is playing ------------
             if (isPlayingLofiSong)
             {
                 AudioSource speakers = __instance.speakerAudioSource;
                 speakers.volume = musicVolume;
 
-                bool isMusicFadeOutNeeded = __instance.inShipPhase || __instance.shipIsLeaving || !isAPlayerInShiproom;
+                bool isMusicFadeOutNeeded = __instance.inShipPhase || __instance.shipIsLeaving || isShiproomEmpty;
 
                 if (!speakers.isPlaying || isMusicFadeOutNeeded)
                 {
+                    LofiCompany.Logger.LogInfo("stopping music");
                     isPlayingLofiSong = false;
 
                     if (isMusicFadeOutNeeded)
@@ -79,10 +116,8 @@ namespace LofiCompany.Patches
                         __instance.StartCoroutine(AudioUtils.FadeOutMusicSource(speakers));
                     }
 
-                    speakers.volume = 1f;
                     isPlayingMusicNextOpportunity = false;
 
-                    LofiCompany.Logger.LogInfo("not playing music anymore");
                 }
 
                 if (TimeOfDay.Instance.TimeOfDayMusic.isPlaying)
@@ -99,9 +134,9 @@ namespace LofiCompany.Patches
             wasShipPowerSurged = true;
         }
 
-        [HarmonyPatch(nameof(StartOfRound.Start))]
+        [HarmonyPatch(nameof(StartOfRound.OnShipLandedMiscEvents))]
         [HarmonyPrefix]
-        public static void OnStartPatch(StartOfRound __instance)
+        public static void OnShipLanded(StartOfRound __instance)
         {
             if (LofiCompany.lofiSongsInQueue.Count != LofiCompany.allLofiSongs.Count)
             {
@@ -109,6 +144,16 @@ namespace LofiCompany.Patches
             }
 
             LofiConfigs.Instance.ParseLofiConditions();
+
+            for (int i = 0; i < LofiCompany.lofiWeatherTypes.Count; i++)
+            {
+                LofiCompany.Logger.LogDebug("lofi weather selection includes: " + LofiCompany.lofiWeatherTypes[i].ToString());
+            }
+            for (int i = 0; i < LofiCompany.lofiDayModes.Count; i++)
+            {
+                LofiCompany.Logger.LogDebug("lofi daytime selection includes: " + LofiCompany.lofiDayModes[i].ToString());
+            }
+
             random = new System.Random(__instance.randomMapSeed);
         }
 
@@ -116,31 +161,6 @@ namespace LofiCompany.Patches
         {
             int rN = random.Next(0, 100);
             return rN < chancePerAttempt;
-        }
-
-        //events that get updated hourly
-        private static void OnHourPassed()
-        {
-            currentMinute = 0;
-            LofiCompany.Logger.LogInfo("it is: " + currentHour + ":" + currentMinute + " this is the 1. check of the current hour");
-            isPlayingMusicNextOpportunity = IsPlayingOnNextOpportunity();
-            isAPlayerInShiproom = IsAPlayerInShiproom();
-        }
-
-        //events that get updated minutely
-        private static void OnMinutePassed()
-        {
-            int targetMinute = (int) (60 / attemptsPerHour);
-
-            for (int i = 0; i < attemptsPerHour; i++)
-            {
-                if (i * targetMinute == currentMinute)
-                {
-                    LofiCompany.Logger.LogInfo("it is: " + currentHour + ":" + currentMinute + " this is the " + (i + 2) + ". check of the current hour");
-
-                    isPlayingMusicNextOpportunity = IsPlayingOnNextOpportunity();
-                }
-            }
         }
 
         private static int[] GetCurrentHoursAndMinutes()
@@ -176,7 +196,26 @@ namespace LofiCompany.Patches
             speakers.PlayOneShot(song);
             isPlayingLofiSong = true;
 
-            LofiCompany.Logger.LogInfo("Now playing: " + song.name);
+            LofiCompany.Logger.LogInfo($"Good {TimeOfDay.Instance.dayMode}! It is {GetTimeAsString()} and the company wants to play some music.");
+            LofiCompany.Logger.LogInfo("The ship's speakers are now playing: " + song.name);
+        }
+
+        private static string GetTimeAsString()
+        {
+            StringBuilder hourString = new();
+            StringBuilder minuteString = new();
+            hourString.Append(currentHours);
+            minuteString.Append(currentMinutes);
+
+            if (hourString.Length == 1)
+            {
+                hourString.Insert(0, 0);
+            }
+            if (minuteString.Length == 1)
+            {
+                minuteString.Insert(0, 0);
+            }
+            return hourString.Append(':').Append(minuteString).ToString();
         }
 
         private static void UpdateWasShipPowerSurged()
