@@ -31,9 +31,9 @@ namespace LofiCompany.Patches
         [HarmonyPostfix]
         public static void PlayLofiAtRandom(StartOfRound __instance)
         {
-            chancePerAttempt = LofiConfigs.Instance.chancePerAttempt.Value;
-            attemptsPerHour = LofiConfigs.Instance.attemptsPerHour.Value;
-            musicVolume = LofiConfigs.Instance.musicVolume.Value;
+            chancePerAttempt = LofiCompany.lofiConfigs.chancePerAttempt.Value;
+            attemptsPerHour = LofiCompany.lofiConfigs.attemptsPerHour.Value;
+            musicVolume = LofiCompany.lofiConfigs.musicVolume.Value;
 
 
             UpdateWasShipPowerSurged();
@@ -54,7 +54,7 @@ namespace LofiCompany.Patches
             //------------ check if players haven't been in the ship for a while ------------
             if (IsAPlayerInShiproom())
             {
-                playerShipLeaveTimer = LofiConfigs.Instance.playerLeaveShipTimer.Value;
+                playerShipLeaveTimer = LofiCompany.lofiConfigs.playerLeaveShipTimer.Value;
                 isShiproomEmpty = false;
             }
             else
@@ -69,7 +69,11 @@ namespace LofiCompany.Patches
             }
 
             //------------ play random song if conditions are met ------------
-            bool areShipConditionsMet = !__instance.speakerAudioSource.isPlaying && !__instance.shipIsLeaving && __instance.shipHasLanded && !__instance.inShipPhase;
+            bool areShipConditionsMet = !__instance.speakerAudioSource.isPlaying 
+                && !__instance.shipIsLeaving 
+                && __instance.shipHasLanded 
+                && !__instance.inShipPhase
+                && !(LofiCompany.wasLofiStopped && LofiCompany.lofiConfigs.isLofiStopActive);
             
             if (!isPlayingLofiSong && areShipConditionsMet && IsAPlayerInShiproom())
             {
@@ -143,7 +147,8 @@ namespace LofiCompany.Patches
                 ResetMusicQueue();
             }
 
-            LofiConfigs.Instance.ParseLofiConditions();
+            LofiCompany.lofiConfigs.ParseLofiConditions();
+            LofiCompany.wasLofiStopped = false;
 
             for (int i = 0; i < LofiCompany.lofiWeatherTypes.Count; i++)
             {
@@ -155,6 +160,16 @@ namespace LofiCompany.Patches
             }
 
             random = new System.Random(__instance.randomMapSeed);
+        }
+
+        [HarmonyPatch(nameof(StartOfRound.DisableShipSpeaker))]
+        [HarmonyPrefix]
+        public static void DisablePlaybackForTheDay()
+        {
+            if (isPlayingLofiSong)
+            {
+                LofiCompany.wasLofiStopped = true;
+            }
         }
 
         private static bool IsPlayingOnNextOpportunity()

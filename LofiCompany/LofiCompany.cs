@@ -10,7 +10,7 @@ using UnityEngine;
 namespace LofiCompany
 {
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-    [BepInDependency("io.github.CSync", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("com.sigurd.csync", "5.0.0")]
     public class LofiCompany : BaseUnityPlugin
     {
         public static LofiCompany Instance { get; private set; } = null!;
@@ -27,6 +27,7 @@ namespace LofiCompany
         internal static List<AudioClip> playedLofiSongs = [];
         internal static List<LevelWeatherType> lofiWeatherTypes = [];
         internal static List<DayMode> lofiDayModes = [];
+        internal static bool wasLofiStopped = false;
 
         private void Awake()
         {

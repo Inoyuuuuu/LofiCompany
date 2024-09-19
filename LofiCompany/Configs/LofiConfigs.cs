@@ -1,20 +1,26 @@
 ﻿using BepInEx.Configuration;
 using CSync.Lib;
-using CSync.Util;
+using CSync.Extensions;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
-using UnityEngine.UIElements;
 using UnityEngine.UIElements.Collections;
 
 namespace LofiCompany.Configs
 {
     [DataContract]
-    internal class LofiConfigs : SyncedConfig<LofiConfigs>
+    internal class LofiConfigs : SyncedConfig2<LofiConfigs>
     {
         private const string CONDITIONS_SEPARATOR = ", ";
         private const string CONDITIONS_KEYWORD_ALL = "ALL";
         private const string CONDITIONS_KEYWORD_DEFAULT = "DEFAULT";
+        private const int MIN_ATTEMPTS_PER_HOUR = 1;
+        private const int MAX_ATTEMPTS_PER_HOUR = 59;
+        private const int MIN_CHANCE = 0;
+        private const int MAX_CHANCE = 100;
+        private const float MIN_VOLUME = 0.01f;
+        private const float MAX_VOLUME = 1f;
+        private const float MIN_LEAVE_TIMER = 1f;
+        private const float MAX_LEAVE_TIMER = 9999f;
 
         private static Dictionary<string, LevelWeatherType> weatherKeywords = [];
         private static Dictionary<string, DayMode> dayModeKeywords = [];
@@ -23,7 +29,7 @@ namespace LofiCompany.Configs
 
         internal const string defaultLofiWeatherTypes = "RAINY, STORMY, FLOODED";
         internal const string defaultLofiDaytimes = "NOON, SUNDOWN";
-        internal const int attemptsPerHourBaseValue = 2;
+        internal const int attemptsPerHourBaseValue = 1;
         internal const int defaultChancePerAttempt = 15;
         internal const float defaultMusicVolume = 0.2f;
         internal const float defaultPlayerLeaveShipTimer = 15f;
@@ -36,6 +42,8 @@ namespace LofiCompany.Configs
         internal SyncedEntry<int> attemptsPerHour, chancePerAttempt;
         [DataMember]
         internal SyncedEntry<float> musicVolume;
+        [DataMember]
+        internal SyncedEntry<bool> isLofiStopActive;
 
         internal LofiConfigs(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_NAME)
         {
@@ -51,52 +59,22 @@ namespace LofiCompany.Configs
             dayModes = cfg.BindSyncedEntry("LofiConditions", "dayModes", defaultLofiDaytimes, "Lofi music will only be played at these times of the day. \n" +
                 "Please write the day types in caps and separated by a comma and a whitespace (eg. 'NOONE, SUNRISE'). \n" +
                 "Following input will be accepted: SUNRISE, NOON, SUNDOWN, MIDNIGHT, ALL, DEFAULT");
-            playerLeaveShipTimer = cfg.BindSyncedEntry("LofiConditions", "playerLeaveShipTimer", defaultPlayerLeaveShipTimer, "If all players leave the shiproom, after this amount of seconds lofi will stop playing.");
-            attemptsPerHour = cfg.BindSyncedEntry("LofiMusicChance", "attemptsPerHour", attemptsPerHourBaseValue, "This determines how often the company will try to put on some lofi music per hour (if LofiConditions are met). \nOne try per hour is the minimum.");
-            chancePerAttempt = cfg.BindSyncedEntry("LofiMusicChance", "chancePerAttempt", defaultChancePerAttempt, "This determines how likely it is that lofi will be played (per attempt). \nThis Value is a percentage, so 100 is the max value.");
-            musicVolume = cfg.BindSyncedEntry("LofiMusic", "musicVolume", defaultMusicVolume, "This is the music volume. \nMax volume is at 1, min is 0.1.");
+
+            playerLeaveShipTimer = cfg.BindSyncedEntry("LofiConditions", "playerLeaveShipTimer", defaultPlayerLeaveShipTimer, 
+                new ConfigDescription("If all players leave the shiproom, after this amount of seconds lofi will stop playing.", 
+                new AcceptableValueRange<float>(MIN_LEAVE_TIMER, MAX_LEAVE_TIMER)));
+            attemptsPerHour = cfg.BindSyncedEntry("LofiMusicChance", "attemptsPerHour", attemptsPerHourBaseValue,
+                new ConfigDescription("This determines how often the company will try to put on some lofi music per hour (if LofiConditions are met). \nOne try per hour is the minimum.", 
+                new AcceptableValueRange<int>(MIN_ATTEMPTS_PER_HOUR, MAX_ATTEMPTS_PER_HOUR)));
+            chancePerAttempt = cfg.BindSyncedEntry("LofiMusicChance", "chancePerAttempt", defaultChancePerAttempt, 
+                new ConfigDescription("This determines how likely it is that lofi will be played (per attempt). \nThis Value is a percentage, so 100 is the max value.", 
+                new AcceptableValueRange<int>(MIN_CHANCE, MAX_CHANCE)));
+            musicVolume = cfg.BindSyncedEntry("LofiMusic", "musicVolume", defaultMusicVolume, 
+                new ConfigDescription("This is the music volume. \nMax volume is at 1, min is 0.1.",
+                new AcceptableValueRange<float>(MIN_VOLUME, MAX_VOLUME)));
+
+            isLofiStopActive = cfg.BindSyncedEntry("LofiConditions", "dontPlayLofiAfterStop", false, "If enabled, LofiMusic will stop and not play for the rest of the day after turning off the speaker.");
             //ambienceVolumeReduction = cfg.BindSyncedEntry("LofiMusic", "ambienceVolumeReduction", defaultAmbienceAudioVolumeReduction, "This decreases the ambience sounds (stuff like weather noises) if music is playing. \nThis is in percent, so ambience audio will play at the given percentage (eg. 80 --> ambience music set to 80% of its original volume).");
-
-            FixConfigs();
-        }
-
-        private void FixConfigs()
-        {
-            if (attemptsPerHour.Value < 1)
-            {
-                attemptsPerHour.Value = 1;
-            }
-            else if (attemptsPerHour.Value > 59)
-            {
-                attemptsPerHour.Value = 59;
-            }
-
-            if (chancePerAttempt.Value < 0)
-            {
-                chancePerAttempt.Value = 0;
-            }
-            else if (chancePerAttempt.Value > 100)
-            {
-                chancePerAttempt.Value = 100;
-            }
-
-            if (musicVolume.Value < 0.01f)
-            {
-                musicVolume.Value = 0.01f;
-            }
-            else if (musicVolume.Value > 1f)
-            {
-                musicVolume.Value = 1f;
-            }
-
-            if (playerLeaveShipTimer.Value > 9999)
-            {
-                playerLeaveShipTimer.Value = 9999;
-            }
-            else if (playerLeaveShipTimer.Value <= 1)
-            {
-                playerLeaveShipTimer.Value = 1;
-            }
         }
 
         private void InitWeatherKeywords()
@@ -168,8 +146,6 @@ namespace LofiCompany.Configs
             {
                 LofiCompany.Logger.LogError("ERROR_03: No weather types were found, will reset to standard ones.");
 
-                weatherTypes.Value = defaultLofiWeatherTypes;
-
                 weatherConditions.Add(LevelWeatherType.Rainy);
                 weatherConditions.Add(LevelWeatherType.Stormy);
                 weatherConditions.Add(LevelWeatherType.Flooded);
@@ -213,8 +189,6 @@ namespace LofiCompany.Configs
             if (dayModeConditions.Count == 0)
             {
                 LofiCompany.Logger.LogError("ERROR_05: No day modes were found, will reset to standard ones.");
-
-                dayModes.Value = defaultLofiDaytimes;
 
                 dayModeConditions.Add(DayMode.Noon);
                 dayModeConditions.Add(DayMode.Sundown);
