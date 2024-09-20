@@ -8,19 +8,19 @@ using UnityEngine.UIElements.Collections;
 namespace LofiCompany.Configs
 {
     [DataContract]
-    internal class LofiConfigs : SyncedConfig2<LofiConfigs>
+    public class LofiConfigs : SyncedConfig2<LofiConfigs>
     {
         private const string CONDITIONS_SEPARATOR = ", ";
         private const string CONDITIONS_KEYWORD_ALL = "ALL";
         private const string CONDITIONS_KEYWORD_DEFAULT = "DEFAULT";
         private const int MIN_ATTEMPTS_PER_HOUR = 1;
-        private const int MAX_ATTEMPTS_PER_HOUR = 59;
+        private const int MAX_ATTEMPTS_PER_HOUR = 30;
         private const int MIN_CHANCE = 0;
         private const int MAX_CHANCE = 100;
         private const float MIN_VOLUME = 0.01f;
         private const float MAX_VOLUME = 1f;
         private const float MIN_LEAVE_TIMER = 1f;
-        private const float MAX_LEAVE_TIMER = 9999f;
+        private const float MAX_LEAVE_TIMER = 3000f;
 
         private static Dictionary<string, LevelWeatherType> weatherKeywords = [];
         private static Dictionary<string, DayMode> dayModeKeywords = [];
@@ -30,24 +30,23 @@ namespace LofiCompany.Configs
         internal const string defaultLofiWeatherTypes = "RAINY, STORMY, FLOODED";
         internal const string defaultLofiDaytimes = "NOON, SUNDOWN";
         internal const int attemptsPerHourBaseValue = 1;
-        internal const int defaultChancePerAttempt = 15;
+        internal const int defaultChancePerAttempt = 30;
         internal const float defaultMusicVolume = 0.2f;
         internal const float defaultPlayerLeaveShipTimer = 15f;
 
-        [DataMember]
-        internal SyncedEntry<string> dayModes, weatherTypes;
-        [DataMember]
-        internal SyncedEntry<float> playerLeaveShipTimer;
-        [DataMember]
-        internal SyncedEntry<int> attemptsPerHour, chancePerAttempt;
-        [DataMember]
-        internal SyncedEntry<float> musicVolume;
-        [DataMember]
-        internal SyncedEntry<bool> isLofiStopActive;
+        [SyncedEntryField]
+        public SyncedEntry<string> dayModes, weatherTypes;
+        [SyncedEntryField]
+        public SyncedEntry<float> playerLeaveShipTimer;
+        [SyncedEntryField]
+        public SyncedEntry<int> attemptsPerHour, chancePerAttempt;
+        [SyncedEntryField]
+        public SyncedEntry<float> musicVolume;
+        [SyncedEntryField]
+        public SyncedEntry<bool> isLofiStopActive;
 
-        internal LofiConfigs(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_NAME)
+        public LofiConfigs(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_NAME)
         {
-            ConfigManager.Register(this);
 
             InitWeatherKeywords();
             InitDayModeKeywords();
@@ -75,6 +74,8 @@ namespace LofiCompany.Configs
 
             isLofiStopActive = cfg.BindSyncedEntry("LofiConditions", "dontPlayLofiAfterStop", false, "If enabled, LofiMusic will stop and not play for the rest of the day after turning off the speaker.");
             //ambienceVolumeReduction = cfg.BindSyncedEntry("LofiMusic", "ambienceVolumeReduction", defaultAmbienceAudioVolumeReduction, "This decreases the ambience sounds (stuff like weather noises) if music is playing. \nThis is in percent, so ambience audio will play at the given percentage (eg. 80 --> ambience music set to 80% of its original volume).");
+
+            ConfigManager.Register(this);
         }
 
         private void InitWeatherKeywords()

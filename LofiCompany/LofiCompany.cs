@@ -10,7 +10,7 @@ using UnityEngine;
 namespace LofiCompany
 {
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
-    [BepInDependency("com.sigurd.csync", "5.0.0")]
+    [BepInDependency("com.sigurd.csync", "5.0.1")]
     public class LofiCompany : BaseUnityPlugin
     {
         public static LofiCompany Instance { get; private set; } = null!;

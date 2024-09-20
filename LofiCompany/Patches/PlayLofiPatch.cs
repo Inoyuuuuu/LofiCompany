@@ -2,6 +2,8 @@ using GameNetcodeStuff;
 using HarmonyLib;
 using LofiCompany.Configs;
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -21,6 +23,9 @@ namespace LofiCompany.Patches
         private static int attemptsPerHour = LofiConfigs.attemptsPerHourBaseValue;
         private static float musicVolume = LofiConfigs.defaultMusicVolume;
         private static float playerShipLeaveTimer = LofiConfigs.defaultPlayerLeaveShipTimer;
+
+        private static int[] lofiTimestamps = new int[chancePerAttempt];
+        private static int lastCheckedTimestamp = -1;
 
         private static bool wasShipPowerSurged = false;
         private static bool isPlayingLofiSong = false;
@@ -82,17 +87,12 @@ namespace LofiCompany.Patches
                 bool isLofiWeather = LofiCompany.lofiWeatherTypes.Contains(currentWeather) || LofiConfigs.areAllWeatherTypesAccepted;
                 bool isLofiDaytime = LofiCompany.lofiDayModes.Contains(currentTimeOfDay) || LofiConfigs.areAllDayModesAccepted;
 
-
                 if (isLofiWeather && isLofiDaytime)
                 {
-                    int checkPointMinutes = (int)(60 / attemptsPerHour);
-
-                    for (int i = 0; i < attemptsPerHour; i++)
+                    if (lofiTimestamps.Contains(currentMinutes) && currentMinutes != lastCheckedTimestamp && !IsDiscoAudioPlaying())
                     {
-                        if (i * checkPointMinutes == currentMinutes || i * checkPointMinutes == 60)
-                        {
-                            isPlayingMusicNextOpportunity = IsPlayingOnNextOpportunity();
-                        }
+                        lastCheckedTimestamp = currentMinutes;
+                        isPlayingMusicNextOpportunity = IsPlayingOnNextOpportunity();
                     }
 
                     if (isPlayingMusicNextOpportunity)
@@ -147,6 +147,7 @@ namespace LofiCompany.Patches
                 ResetMusicQueue();
             }
 
+            CalcAllLofiTimestamps();
             LofiCompany.lofiConfigs.ParseLofiConditions();
             LofiCompany.wasLofiStopped = false;
 
@@ -178,15 +179,28 @@ namespace LofiCompany.Patches
             return rN < chancePerAttempt;
         }
 
+        private static void CalcAllLofiTimestamps()
+        {
+            int checkPointMinutes = (int)(60 / attemptsPerHour);
+            lofiTimestamps = new int[attemptsPerHour];
+
+            for (int i = 0; i < attemptsPerHour; i++)
+            {
+                lofiTimestamps[i] = checkPointMinutes * i;
+            }
+        }
+
         private static int[] GetCurrentHoursAndMinutes()
         {
-            TimeOfDay timeOfDay = TimeOfDay.Instance;
+            if (TimeOfDay.Instance.currentLevel == null || StartOfRound.Instance.currentLevel == null)
+            {
+                return [999,999];
+            }
 
-            float planetTimeOfDay = timeOfDay.CalculatePlanetTime(timeOfDay.currentLevel);
-            float timeOfDayInHours = planetTimeOfDay / timeOfDay.lengthOfHours;
+            float planetTimeOfDay = TimeOfDay.Instance.CalculatePlanetTime(StartOfRound.Instance.currentLevel);
+            float timeOfDayInHours = planetTimeOfDay / TimeOfDay.Instance.lengthOfHours;
 
-            int[] hoursMinutes = [(int)timeOfDayInHours + 6, (int)((timeOfDayInHours - (int)timeOfDayInHours) * 60)];
-            return hoursMinutes;
+            return [(int)timeOfDayInHours + 6, (int)((timeOfDayInHours - (int)timeOfDayInHours) * 60)];
         }
 
         private static void PlayRandomSong(StartOfRound startOfRound)
@@ -211,8 +225,8 @@ namespace LofiCompany.Patches
             speakers.PlayOneShot(song);
             isPlayingLofiSong = true;
 
-            LofiCompany.Logger.LogInfo($"Good {TimeOfDay.Instance.dayMode}! It is {GetTimeAsString()} and the company wants to play some music.");
-            LofiCompany.Logger.LogInfo("The ship's speakers are now playing: " + song.name);
+            LofiCompany.Logger.LogInfo($"Hello and good {TimeOfDay.Instance.dayMode}! It is {GetTimeAsString()} and the company wants to play some music.");
+            LofiCompany.Logger.LogInfo($"The ship's speakers are now playing: \n {song.name}");
         }
 
         private static string GetTimeAsString()
@@ -255,6 +269,19 @@ namespace LofiCompany.Patches
                 {
                     return true;
                 }
+            }
+
+            return false;
+        }
+
+        private static bool IsDiscoAudioPlaying()
+        {
+            GameObject discoAudioObject = GameObject.Find("DiscoBallContainer(Clone)/AnimContainer/Audio") 
+                ?? GameObject.Find("DiscoBallContainer/AnimContainer/Audio");
+            if (discoAudioObject != null)
+            {
+                AudioSource discoAudioSource = discoAudioObject.GetComponent<AudioSource>();
+                return discoAudioSource != null && discoAudioSource.isPlaying;
             }
 
             return false;
