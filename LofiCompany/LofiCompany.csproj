@@ -1,5 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
+	
     <!-- BepInEx Properties -->
     <PropertyGroup>
         <AssemblyName>inoyu.LofiCompany</AssemblyName>
@@ -10,7 +10,7 @@
 
     <!-- Project Properties -->
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <RootNamespace>LofiCompany</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
@@ -32,7 +32,7 @@
     <!-- Embed Debug Symbols for Easier Debugging -->
     <PropertyGroup>
         <DebugSymbols>true</DebugSymbols>
-        <DebugType>embedded</DebugType>
+        <DebugType>Portable</DebugType>
         <!--
         Trim the project path to prevent players from potentially
         viewing Private Information in stack traces.
@@ -53,4 +53,15 @@
     <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
         <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
     </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Unity.Netcode.Runtime">
+        <HintPath>C:\Program Files (x86)\Steam\steamapps\common\Lethal Company\Lethal Company_Data\Managed\Unity.Netcode.Runtime.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+	<Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
+		<Exec Command="netcode-patch &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
+	</Target>
+
 </Project>
