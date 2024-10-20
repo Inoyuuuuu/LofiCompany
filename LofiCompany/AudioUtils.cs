@@ -14,7 +14,7 @@ namespace LofiCompany
 
         public static IEnumerator FadeOutMusicSource(AudioSource audioSource)
         {
-            LofiCompany.Logger.LogInfo("fading out: " + audioSource.name);
+            LofiCompany.Logger.LogDebug("fading out: " + audioSource.name);
 
             float initialVolume = audioSource.volume;
             while (audioSource.volume > 0.1f)
@@ -29,7 +29,7 @@ namespace LofiCompany
 
         public static IEnumerator FadeInMusicSource(AudioSource audioSource, float initialVolume)
         {
-            LofiCompany.Logger.LogInfo("fading in: " + audioSource.name);
+            LofiCompany.Logger.LogDebug("fading in: " + audioSource.name);
             audioSource.volume = 0f;
 
             while (audioSource.volume < initialVolume)

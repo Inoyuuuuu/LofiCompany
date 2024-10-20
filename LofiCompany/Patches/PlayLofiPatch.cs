@@ -1,19 +1,17 @@
-using GameNetcodeStuff;
 using HarmonyLib;
+using LethalNetworkAPI;
 using LofiCompany.Configs;
-using System.Collections;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.UIElements;
 
 namespace LofiCompany.Patches
 {
     [HarmonyPatch(typeof(StartOfRound))]
     public class PlayLofiPatch
     {
+        private static LethalClientMessage<int> playSongClientMessage = new("playSong", onReceivedFromClient: HelloWorld);
+
         private static System.Random random = new(0);
 
         private static int[] hoursMinutes = new int[2];
@@ -199,7 +197,7 @@ namespace LofiCompany.Patches
         {
             if (TimeOfDay.Instance.currentLevel == null || StartOfRound.Instance.currentLevel == null)
             {
-                return [999,999];
+                return [999, 999];
             }
 
             float planetTimeOfDay = TimeOfDay.Instance.CalculatePlanetTime(StartOfRound.Instance.currentLevel);
@@ -228,9 +226,11 @@ namespace LofiCompany.Patches
             speakers.volume = 0f;
             speakers.PlayOneShot(song);
             isPlayingLofiSong = true;
-            
+
+            playSongClientMessage.SendAllClients(songIndex); //-------------------------------------------------------------------------------
+
             LofiCompany.lofiSongsInQueue.Remove(song);
-            
+
             LofiCompany.Logger.LogInfo($"Hello and good {TimeOfDay.Instance.dayMode}! It is {GetTimeAsString()} and the company wants to play some music.");
             LofiCompany.Logger.LogInfo($"The ship's speakers are now playing: \n {song.name}");
         }
@@ -282,7 +282,7 @@ namespace LofiCompany.Patches
 
         private static bool IsDiscoAudioPlaying()
         {
-            GameObject discoAudioObject = GameObject.Find("DiscoBallContainer(Clone)/AnimContainer/Audio") 
+            GameObject discoAudioObject = GameObject.Find("DiscoBallContainer(Clone)/AnimContainer/Audio")
                 ?? GameObject.Find("DiscoBallContainer/AnimContainer/Audio");
             if (discoAudioObject != null)
             {
@@ -291,6 +291,11 @@ namespace LofiCompany.Patches
             }
 
             return false;
+        }
+
+        private static void HelloWorld(int helloWorldInt, ulong clientId)
+        {
+            LofiCompany.Logger.LogInfo($"hello world: {helloWorldInt}");
         }
     }
 }

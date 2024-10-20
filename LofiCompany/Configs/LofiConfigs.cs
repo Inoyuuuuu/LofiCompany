@@ -54,21 +54,21 @@ namespace LofiCompany.Configs
             weatherTypes = cfg.BindSyncedEntry("LofiConditions", "weatherTypes", defaultLofiWeatherTypes, "Lofi music will only be played under these weather conditions. \n" +
                 "Please write the weather types in caps and separated by a comma and a whitespace (eg. 'RAINY, FOGGY'). \n" +
                 "Following input will be accepted: RAINY, STORMY, FLOODED, ECLIPSED, FOGGY, DUSTCLOUDS, NORMAL, ALL, DEFAULT (with 'NORMAL' being the standard sunny day)");
-            
+
             dayModes = cfg.BindSyncedEntry("LofiConditions", "dayModes", defaultLofiDaytimes, "Lofi music will only be played at these times of the day. \n" +
                 "Please write the day types in caps and separated by a comma and a whitespace (eg. 'NOONE, SUNRISE'). \n" +
                 "Following input will be accepted: SUNRISE, NOON, SUNDOWN, MIDNIGHT, ALL, DEFAULT");
 
-            playerLeaveShipTimer = cfg.BindSyncedEntry("LofiConditions", "playerLeaveShipTimer", defaultPlayerLeaveShipTimer, 
-                new ConfigDescription("If all players leave the shiproom, after this amount of seconds lofi will stop playing.", 
+            playerLeaveShipTimer = cfg.BindSyncedEntry("LofiConditions", "playerLeaveShipTimer", defaultPlayerLeaveShipTimer,
+                new ConfigDescription("If all players leave the shiproom, after this amount of seconds lofi will stop playing.",
                 new AcceptableValueRange<float>(MIN_LEAVE_TIMER, MAX_LEAVE_TIMER)));
             attemptsPerHour = cfg.BindSyncedEntry("LofiMusicChance", "attemptsPerHour", attemptsPerHourBaseValue,
-                new ConfigDescription("This determines how often the company will try to put on some lofi music per hour (if LofiConditions are met). \nOne try per hour is the minimum.", 
+                new ConfigDescription("This determines how often the company will try to put on some lofi music per hour (if LofiConditions are met). \nOne try per hour is the minimum.",
                 new AcceptableValueRange<int>(MIN_ATTEMPTS_PER_HOUR, MAX_ATTEMPTS_PER_HOUR)));
-            chancePerAttempt = cfg.BindSyncedEntry("LofiMusicChance", "chancePerAttempt", defaultChancePerAttempt, 
-                new ConfigDescription("This determines how likely it is that lofi will be played (per attempt). \nThis Value is a percentage, so 100 is the max value.", 
+            chancePerAttempt = cfg.BindSyncedEntry("LofiMusicChance", "chancePerAttempt", defaultChancePerAttempt,
+                new ConfigDescription("This determines how likely it is that lofi will be played (per attempt). \nThis Value is a percentage, so 100 is the max value.",
                 new AcceptableValueRange<int>(MIN_CHANCE, MAX_CHANCE)));
-            musicVolume = cfg.BindSyncedEntry("LofiMusic", "musicVolume", defaultMusicVolume, 
+            musicVolume = cfg.BindSyncedEntry("LofiMusic", "musicVolume", defaultMusicVolume,
                 new ConfigDescription("This is the music volume. \nMax volume is at 1, min is 0.1.",
                 new AcceptableValueRange<float>(MIN_VOLUME, MAX_VOLUME)));
 
@@ -121,7 +121,7 @@ namespace LofiCompany.Configs
             {
                 areAllWeatherTypesAccepted = true;
                 weatherConditions.AddRange(weatherKeywords.Values);
-            } 
+            }
             else if (weatherAsStrings.Contains(CONDITIONS_KEYWORD_DEFAULT))
             {
                 weatherConditions.Add(LevelWeatherType.Rainy);
@@ -135,7 +135,7 @@ namespace LofiCompany.Configs
                     if (weatherKeywords.ContainsKey(weatherAsStrings[i]))
                     {
                         weatherConditions.Add(weatherKeywords.Get(weatherAsStrings[i]));
-                    } 
+                    }
                     else
                     {
                         LofiCompany.Logger.LogError("ERROR_02: There was an error with parsing a weather type: \"" + weatherAsStrings[i] + "\". Make sure the weather was typed in correctly!");
