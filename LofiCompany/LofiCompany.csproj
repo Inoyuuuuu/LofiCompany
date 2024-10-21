@@ -39,11 +39,6 @@
         -->
         <PathMap>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))=./</PathMap>
     </PropertyGroup>
-    <ItemGroup>
-      <Compile Remove="NewFolder\**" />
-      <EmbeddedResource Remove="NewFolder\**" />
-      <None Remove="NewFolder\**" />
-    </ItemGroup>
 
     <!-- Primary Package References -->
     <ItemGroup>

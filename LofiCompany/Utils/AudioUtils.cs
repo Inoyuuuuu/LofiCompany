@@ -5,7 +5,7 @@ using System.Text;
 using UnityEngine;
 using static UnityEngine.ParticleSystem.PlaybackState;
 
-namespace LofiCompany
+namespace LofiCompany.Utils
 {
     internal class AudioUtils
     {
@@ -14,8 +14,6 @@ namespace LofiCompany
 
         public static IEnumerator FadeOutMusicSource(AudioSource audioSource)
         {
-            LofiCompany.Logger.LogDebug("fading out: " + audioSource.name);
-
             float initialVolume = audioSource.volume;
             while (audioSource.volume > 0.1f)
             {
@@ -29,7 +27,6 @@ namespace LofiCompany
 
         public static IEnumerator FadeInMusicSource(AudioSource audioSource, float initialVolume)
         {
-            LofiCompany.Logger.LogDebug("fading in: " + audioSource.name);
             audioSource.volume = 0f;
 
             while (audioSource.volume < initialVolume)

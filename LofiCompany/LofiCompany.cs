@@ -7,6 +7,7 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using LofiCompany.Configs;
+using System.Linq;
 
 namespace LofiCompany
 {
@@ -25,8 +26,8 @@ namespace LofiCompany
         internal static LofiConfigs lofiConfigs;
 
         internal static List<AudioClip> allLofiSongs = [];
-        internal static List<AudioClip> lofiSongsInQueue = [];
-        internal static List<AudioClip> playedLofiSongs = [];
+        internal static List<int> lofiSongIndexesInQueue = [];
+        internal static List<int> playedLofiSongIndexes = [];
         internal static List<LevelWeatherType> lofiWeatherTypes = [];
         internal static List<DayMode> lofiDayModes = [];
         internal static bool wasLofiStopped = false;
@@ -38,7 +39,7 @@ namespace LofiCompany
             lofiConfigs = new LofiConfigs(Config);
             LoadLofiMusic();
 
-            if (lofiSongsInQueue.Count > 0)
+            if (lofiSongIndexesInQueue.Count > 0)
             {
                 Patch();
                 Logger.LogInfo($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
@@ -77,7 +78,11 @@ namespace LofiCompany
 
             lofiAssetBundle = AssetBundle.LoadFromFile(lofiAssetBundleDir);
             allLofiSongs = [.. lofiAssetBundle.LoadAllAssets<AudioClip>()];
-            lofiSongsInQueue.AddRange(allLofiSongs);
+
+            for (int i = 0; i < allLofiSongs.Count; i++)
+            {
+                lofiSongIndexesInQueue.Add(i);
+            }
         }
     }
 }
