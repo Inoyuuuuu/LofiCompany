@@ -21,6 +21,8 @@ namespace LofiCompany.Configs
         private const float MAX_VOLUME = 1f;
         private const float MIN_LEAVE_TIMER = 1f;
         private const float MAX_LEAVE_TIMER = 3000f;
+        private const int MIN_REMOTE_PRICE = 0;
+        private const int MAX_REMOTE_PRICE = 99999;
 
         private static Dictionary<string, LevelWeatherType> weatherKeywords = [];
         private static Dictionary<string, DayMode> dayModeKeywords = [];
@@ -33,6 +35,7 @@ namespace LofiCompany.Configs
         internal const int defaultChancePerAttempt = 30;
         internal const float defaultMusicVolume = 0.2f;
         internal const float defaultPlayerLeaveShipTimer = 15f;
+        internal const int defaultLofiRemotePrice = 40;
 
         [SyncedEntryField]
         public SyncedEntry<string> dayModes, weatherTypes;
@@ -44,6 +47,8 @@ namespace LofiCompany.Configs
         public SyncedEntry<float> musicVolume;
         [SyncedEntryField]
         public SyncedEntry<bool> isLofiStopActive;
+        [SyncedEntryField]
+        public SyncedEntry<int> lofiRemotePrice;
 
         public LofiConfigs(ConfigFile cfg) : base(MyPluginInfo.PLUGIN_NAME)
         {
@@ -71,6 +76,9 @@ namespace LofiCompany.Configs
             musicVolume = cfg.BindSyncedEntry("LofiMusic", "musicVolume", defaultMusicVolume,
                 new ConfigDescription("This is the music volume. \nMax volume is at 1, min is 0.1.",
                 new AcceptableValueRange<float>(MIN_VOLUME, MAX_VOLUME)));
+            lofiRemotePrice = cfg.BindSyncedEntry("OtherStuff", "lofiRemotePrice", defaultLofiRemotePrice,
+                new ConfigDescription("This sets the price of the lofi-remote.", 
+                new AcceptableValueRange<int>(MIN_REMOTE_PRICE, MAX_REMOTE_PRICE)));
 
             isLofiStopActive = cfg.BindSyncedEntry("LofiConditions", "dontPlayLofiAfterStop", false, "If enabled, LofiMusic will stop and not play for the rest of the day after turning off the speaker.");
             //ambienceVolumeReduction = cfg.BindSyncedEntry("LofiMusic", "ambienceVolumeReduction", defaultAmbienceAudioVolumeReduction, "This decreases the ambience sounds (stuff like weather noises) if music is playing. \nThis is in percent, so ambience audio will play at the given percentage (eg. 80 --> ambience music set to 80% of its original volume).");

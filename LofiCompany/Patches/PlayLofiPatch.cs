@@ -13,8 +13,8 @@ namespace LofiCompany.Patches
     public class PlayLofiPatch
     {
         private static LethalClientMessage<int> playSongClientMsg = new("playLofiSong", onReceivedFromClient: PlayLofiSongClient);
-        private static LethalClientMessage<AudioSourceAndInitVolume> fadeInSFXSourceClientMsg = new("fadeInSFXSource", onReceivedFromClient: FadeInSFXSourceClient);
-        private static LethalClientMessage<AudioSource> fadeOutSFXSourceClientMsg = new("fadeOutSFXSource", onReceivedFromClient: FadeOutSFXSourceClient);
+        private static LethalClientMessage<string> fadeInSFXSourceClientMsg = new("fadeInSFXSource", onReceivedFromClient: FadeInShipSpeakerSFXSourceClient);
+        private static LethalClientMessage<string> fadeOutSFXSourceClientMsg = new("fadeOutSFXSource", onReceivedFromClient: FadeOutSFXSourceClient);
         private static LethalClientMessage<bool> setVolumeToStandartClientMsg = new("setVolumeToStandart", onReceivedFromClient: SetIsSpeakerVolStandartVolClient);
 
         private static System.Random random = new(0);
@@ -32,9 +32,9 @@ namespace LofiCompany.Patches
         private static int lastCheckedTimestamp = -1;
 
         private static bool wasShipPowerSurged = false;
-        private static bool isPlayingLofiSong = false;
         private static bool isPlayingMusicNextOpportunity = false;
         private static bool isShiproomEmpty = false;
+        internal static bool isPlayingLofiSong = false;
 
         private static bool isSpeakerVolStandartVol = true;
 
@@ -105,7 +105,7 @@ namespace LofiCompany.Patches
 
                         if (isPlayingMusicNextOpportunity)
                         {
-                            PlayRandomSong(__instance);
+                            PlayRandomSong();
                         }
                     }
                 }
@@ -114,21 +114,16 @@ namespace LofiCompany.Patches
                 if (isPlayingLofiSong)
                 {
                     AudioSource speakers = __instance.speakerAudioSource;
+                    bool isMusicFadeOutNeeded = __instance.shipIsLeaving || isShiproomEmpty;
 
-                    setVolumeToStandartClientMsg.SendAllClients(false);
-
-                    bool isMusicFadeOutNeeded = __instance.inShipPhase || __instance.shipIsLeaving || isShiproomEmpty;
-
-                    if (!speakers.isPlaying || isMusicFadeOutNeeded)
+                    if (isMusicFadeOutNeeded)
                     {
-                        LofiCompany.Logger.LogInfo("stopping music");
+                        fadeOutSFXSourceClientMsg.SendAllClients("speakers");
+                    }
+
+                    if (!speakers.isPlaying)
+                    {
                         isPlayingLofiSong = false;
-
-                        if (isMusicFadeOutNeeded)
-                        {
-                            fadeOutSFXSourceClientMsg.SendAllClients(speakers);
-                        }
-
                         isPlayingMusicNextOpportunity = false;
 
                     }
@@ -137,15 +132,16 @@ namespace LofiCompany.Patches
                     {
                         TimeOfDay.Instance.TimeOfDayMusic.Stop();
                     }
-                } else
-                {
-                    setVolumeToStandartClientMsg.SendAllClients(true);
+
                 }
             }
 
-            if (!isSpeakerVolStandartVol)
+            if (__instance.speakerAudioSource.isPlaying 
+                && !AudioUtils.isFadingIn
+                && !AudioUtils.isFadingOut
+                && __instance.speakerAudioSource.volume != LofiCompany.lofiConfigs.musicVolume)
             {
-                __instance.speakerAudioSource.volume = musicVolume; 
+                __instance.speakerAudioSource.volume = LofiCompany.lofiConfigs.musicVolume;
             }
         }
 
@@ -221,13 +217,8 @@ namespace LofiCompany.Patches
             return [(int)timeOfDayInHours + 6, (int)((timeOfDayInHours - (int)timeOfDayInHours) * 60)];
         }
 
-        private static void PlayRandomSong(StartOfRound startOfRound)
+        internal static void PlayRandomSong()
         {
-            if (TimeOfDay.Instance.TimeOfDayMusic.isPlaying)
-            {
-                fadeOutSFXSourceClientMsg.SendAllClients(TimeOfDay.Instance.TimeOfDayMusic);
-            }
-
             if (LofiCompany.lofiSongIndexesInQueue.Count <= 0)
             {
                 ResetMusicQueue();
@@ -236,9 +227,8 @@ namespace LofiCompany.Patches
             int songIndex = LofiCompany.lofiSongIndexesInQueue[random.Next(0, LofiCompany.lofiSongIndexesInQueue.Count - 1)];
             isPlayingLofiSong = true;
 
-            fadeInSFXSourceClientMsg.SendAllClients(new AudioSourceAndInitVolume(startOfRound.speakerAudioSource, musicVolume));
+            fadeInSFXSourceClientMsg.SendAllClients("speakers");
             playSongClientMsg.SendAllClients(songIndex);
-
         }
 
         private static string GetTimeAsString()
@@ -289,7 +279,7 @@ namespace LofiCompany.Patches
             return false;
         }
 
-        private static bool IsDiscoAudioPlaying()
+        internal static bool IsDiscoAudioPlaying()
         {
             GameObject discoAudioObject = GameObject.Find("DiscoBallContainer(Clone)/AnimContainer/Audio")
                 ?? GameObject.Find("DiscoBallContainer/AnimContainer/Audio");
@@ -302,35 +292,58 @@ namespace LofiCompany.Patches
             return false;
         }
 
-        private static void PlayLofiSongClient(int songIndex, ulong clientId)
+        internal static void PlayLofiSongClient(int songIndex, ulong clientId)
         {
             StartOfRound startOfRound = StartOfRound.Instance;
 
             AudioSource speakers = startOfRound.speakerAudioSource;
             AudioClip song = LofiCompany.allLofiSongs[songIndex];
 
+            if (TimeOfDay.Instance.TimeOfDayMusic.isPlaying)
+            {
+                startOfRound.StartCoroutine(AudioUtils.FadeOutMusicSource(TimeOfDay.Instance.TimeOfDayMusic));
+            }
+
+            speakers.Stop();
             speakers.volume = 0f;
             speakers.PlayOneShot(song);
 
             LofiCompany.lofiSongIndexesInQueue.Remove(songIndex);
 
-            LofiCompany.Logger.LogInfo($"Hello and good {TimeOfDay.Instance.dayMode}! It is {GetTimeAsString()} and the company wants to play some music.");
-            LofiCompany.Logger.LogInfo($"The ship's speakers are now playing: \n {song.name}");
+            int[] time = GetCurrentHoursAndMinutes();
+            LofiCompany.Logger.LogInfo($"Hello and good {TimeOfDay.Instance.dayMode}! It is {time[0]}:{time[1]} and the company wants to play some music.");
+            LofiCompany.Logger.LogInfo($"The ship's speakers are now playing track {songIndex}: {song.name}");
         }
 
-        private static void FadeInSFXSourceClient(AudioSourceAndInitVolume audioSourceAndInitVolume, ulong clientId)
+        internal static void FadeInShipSpeakerSFXSourceClient(string audioSourceName, ulong clientId)
         {
             StartOfRound startOfRound = StartOfRound.Instance;
-            startOfRound.StartCoroutine(AudioUtils.FadeInMusicSource(audioSourceAndInitVolume.audioSource, audioSourceAndInitVolume.initVolume));
+            AudioSource audioSource = startOfRound.speakerAudioSource;
+            float initVolume = 1f;
+
+            if (audioSourceName == "speakers")
+            {
+                audioSource = startOfRound.speakerAudioSource;
+                initVolume = LofiCompany.lofiConfigs.musicVolume;
+            }
+
+            startOfRound.StartCoroutine(AudioUtils.FadeInMusicSource(audioSource, initVolume));
         }
 
-        private static void FadeOutSFXSourceClient(AudioSource audioSource, ulong clientId)
+        internal static void FadeOutSFXSourceClient(string audioSourceName, ulong clientId)
         {
             StartOfRound startOfRound = StartOfRound.Instance;
+            AudioSource audioSource = startOfRound.speakerAudioSource;
+
+            if (audioSourceName == "speakers")
+            {
+                audioSource = startOfRound.speakerAudioSource;
+            }
+
             startOfRound.StartCoroutine(AudioUtils.FadeOutMusicSource(audioSource));
         }
 
-        private static void SetIsSpeakerVolStandartVolClient(bool isSVSV, ulong clientId)
+        internal static void SetIsSpeakerVolStandartVolClient(bool isSVSV, ulong clientId)
         {
             isSpeakerVolStandartVol = isSVSV;
         }

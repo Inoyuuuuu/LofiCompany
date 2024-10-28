@@ -7,6 +7,10 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using LofiCompany.Configs;
+using LofiCompany.Behaviours;
+using Unity.Netcode;
+using LethalLib.Modules;
+using NetworkPrefabs = LethalLib.Modules.NetworkPrefabs;
 using System.Linq;
 
 namespace LofiCompany
@@ -21,7 +25,10 @@ namespace LofiCompany
         internal static Harmony? Harmony { get; set; }
 
         internal static string ASSET_BUNDLE_NAME = "lofiassetbundle";
+        internal static string LOFI_REMOTE_ITEM_PROPERTIES_DIR = "Assets/Mods/LofiCompany/LofiRemote/LofiRemoteItem.asset";
+        internal static string LOFI_REMOTE_CLICK_SOUND_DIR = "Assets/Mods/LofiCompany/LofiRemote/RemoteClick.ogg";
         internal static AssetBundle? lofiAssetBundle;
+        internal static Item? lofiRemoteItem;
 
         internal static LofiConfigs lofiConfigs;
 
@@ -30,6 +37,7 @@ namespace LofiCompany
         internal static List<int> playedLofiSongIndexes = [];
         internal static List<LevelWeatherType> lofiWeatherTypes = [];
         internal static List<DayMode> lofiDayModes = [];
+
         internal static bool wasLofiStopped = false;
 
         private void Awake()
@@ -37,7 +45,29 @@ namespace LofiCompany
             Logger = base.Logger;
             Instance = this;
             lofiConfigs = new LofiConfigs(Config);
-            LoadLofiMusic();
+
+            string lofiRemoteAssetDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), ASSET_BUNDLE_NAME);
+            lofiAssetBundle = AssetBundle.LoadFromFile(lofiRemoteAssetDir);
+            lofiRemoteItem = lofiAssetBundle.LoadAsset<Item>(LOFI_REMOTE_ITEM_PROPERTIES_DIR);
+
+            AudioClip clickAudio = lofiAssetBundle.LoadAsset<AudioClip>(LOFI_REMOTE_CLICK_SOUND_DIR);
+            AudioSource audioSource = lofiRemoteItem.spawnPrefab.GetComponent<AudioSource>();
+            audioSource.clip = clickAudio;
+            
+            LofiRemoteScript script = lofiRemoteItem.spawnPrefab.AddComponent<LofiRemoteScript>();
+            script.grabbable = true;
+            script.itemProperties = lofiRemoteItem;
+            script.lofiRemoteAudioSource = audioSource;
+
+            NetworkPrefabs.RegisterNetworkPrefab(lofiRemoteItem.spawnPrefab);
+            Utilities.FixMixerGroups(lofiRemoteItem.spawnPrefab);
+
+            TerminalNode lofiRemoteNode = ScriptableObject.CreateInstance<TerminalNode>();
+            lofiRemoteNode.clearPreviousText = true;
+            lofiRemoteNode.displayText = "A remote for turning on lofi or switching to the next song!\n\n";
+            Items.RegisterShopItem(lofiRemoteItem, null, null, lofiRemoteNode, lofiConfigs.lofiRemotePrice);
+
+            LoadLofiMusic(lofiAssetBundle);
 
             if (lofiSongIndexesInQueue.Count > 0)
             {
@@ -71,13 +101,18 @@ namespace LofiCompany
             Logger.LogDebug("Finished unpatching!");
         }
 
-        internal static void LoadLofiMusic()
+        internal static void LoadLofiMusic(AssetBundle assetBundle)
         {
-            string assemblyDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            string lofiAssetBundleDir = Path.Combine(assemblyDir, ASSET_BUNDLE_NAME);
+            allLofiSongs = assetBundle.LoadAllAssets<AudioClip>().ToList();
 
-            lofiAssetBundle = AssetBundle.LoadFromFile(lofiAssetBundleDir);
-            allLofiSongs = [.. lofiAssetBundle.LoadAllAssets<AudioClip>()];
+            foreach (AudioClip clip in allLofiSongs)
+            {
+                if (clip.name == "RemoteClick")
+                {
+                    allLofiSongs.Remove(clip);
+                    Logger.LogMessage("removed click sound");
+                }
+            }
 
             for (int i = 0; i < allLofiSongs.Count; i++)
             {

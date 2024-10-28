@@ -9,6 +9,9 @@ namespace LofiCompany.Utils
 {
     internal class AudioUtils
     {
+        internal static bool isFadingIn = false;
+        internal static bool isFadingOut = false;
+
         private const float fadeAmount = 0.07f;
         private const float delayBetweenSteps = 0.2f;
 
@@ -17,11 +20,13 @@ namespace LofiCompany.Utils
             float initialVolume = audioSource.volume;
             while (audioSource.volume > 0.1f)
             {
+                isFadingOut = true;
                 audioSource.volume -= fadeAmount;
                 yield return new WaitForSeconds(delayBetweenSteps);
             }
             audioSource.Stop();
             audioSource.volume = initialVolume;
+            isFadingOut = false;
             yield break;
         }
 
@@ -31,10 +36,12 @@ namespace LofiCompany.Utils
 
             while (audioSource.volume < initialVolume)
             {
+                isFadingIn = true;
                 audioSource.volume += fadeAmount;
                 yield return new WaitForSeconds(delayBetweenSteps);
             }
             audioSource.volume = initialVolume;
+            isFadingIn = false;
             yield break;
         }
     }
