@@ -1,7 +1,6 @@
 ![banner](https://i.imgur.com/ZXsTprf.png)
 
-This is a unity-mod written in C# for the videogame "Lethal Company".
-
+This is a unity-mod written in C# for the videogame "Lethal Company".\
 [thunderstore link](https://thunderstore.io/c/lethal-company/p/Inoyu/LofiCompany/)
 
 # Content
